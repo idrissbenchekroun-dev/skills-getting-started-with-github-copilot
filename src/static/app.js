@@ -23,14 +23,19 @@ document.addEventListener("DOMContentLoaded", () => {
         // Générer la liste des participants
         let participantsHTML = "";
         if (details.participants.length > 0) {
-          participantsHTML = `
-            <div class="participants-section">
-              <strong>Participants inscrits&nbsp;:</strong>
-              <ul class="participants-list">
-                ${details.participants.map(email => `<li>${email}</li>`).join("")}
-              </ul>
-            </div>
-          `;
+            participantsHTML = `
+              <div class="participants-section">
+                <strong>Participants inscrits&nbsp;:</strong>
+                <ul class="participants-list" style="list-style-type: none;"> // Masquer les puces
+                  ${details.participants.map((email, index) => `
+                    <li style="display: flex; align-items: center;">
+                      <span>${email}</span>
+                      <span style="cursor: pointer; margin-left: 8px;" title="Supprimer" onclick="unregisterParticipant(${index})">🗑️</span>
+                    </li>
+                  `).join("")}
+                </ul>
+              </div>
+            `;
         } else {
           participantsHTML = `
             <div class="participants-section">
@@ -39,6 +44,29 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
           `;
         }
+
+// Rendre la fonction accessible globalement
+window.unregisterParticipant = function(index) {
+  // Cette fonction doit appeler l'API pour désinscrire le participant, puis rafraîchir la liste
+  // On suppose que l'activité sélectionnée est celle affichée (à améliorer si plusieurs activités)
+  const activity = document.getElementById("activity").value;
+  // Récupérer l'email du participant à supprimer (on va chercher dans la liste affichée)
+  const activityCards = document.querySelectorAll('.activity-card');
+  let email = null;
+  activityCards.forEach(card => {
+    if (card.querySelector('h4').textContent === activity) {
+      const emails = Array.from(card.querySelectorAll('.participants-list li span:first-child'));
+      if (emails[index]) {
+        email = emails[index].textContent;
+      }
+    }
+  });
+  if (!email) return;
+  fetch(`/activities/${encodeURIComponent(activity)}/unregister?email=${encodeURIComponent(email)}`, {
+    method: "POST"
+  })
+    .then(() => fetchActivities());
+};
 
         activityCard.innerHTML = `
           <h4>${name}</h4>
@@ -83,6 +111,8 @@ document.addEventListener("DOMContentLoaded", () => {
         messageDiv.textContent = result.message;
         messageDiv.className = "success";
         signupForm.reset();
+        // Rafraîchir la liste des activités pour afficher le participant ajouté
+        fetchActivities();
       } else {
         messageDiv.textContent = result.detail || "An error occurred";
         messageDiv.className = "error";
